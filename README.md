@@ -36,6 +36,36 @@ Il pannello mostra il valore di un sensore di potenza già presente in Home Assi
 - cavi Dupont per le prove o cablaggio definitivo saldato
 - case stampato in 3D
 
+## Collegamenti elettrici
+
+Scheda: **Wemos D1 mini** (ESP8266). Pin verificati su sketch e YAML.
+
+### Versione Arduino (`Pannello_Kw.ino`: `MATRIX_PIN 12`, `BUZZER_PIN 14`)
+
+| Wemos D1 mini | Collegato a |
+|---|---|
+| **D6 / GPIO12** | **DIN** matrice WS2812B 8×32, con resistenza **220–470 Ω** in serie vicino al primo LED |
+| **D5 / GPIO14** | **+** buzzer **passivo** |
+| **GND** | − buzzer, GND matrice e GND alimentatore (massa comune) |
+| **5V** | +5V alimentatore (oppure D1 mini alimentato da USB) |
+
+| Alimentatore 5 V (2–3 A) | Matrice |
+|---|---|
+| +5V | 5V matrice |
+| GND | GND matrice |
+
+Condensatore da **1000 µF** tra 5V e GND vicino alla matrice. Mappatura: `NEO_MATRIX_TOP + LEFT + COLUMNS + ZIGZAG`.
+
+### Versione ESPHome (`esphome/pannello_kw.yaml`)
+
+| Wemos D1 mini | Collegato a |
+|---|---|
+| **RX / GPIO3** | **DIN** matrice (resistenza in serie) |
+| **D5 / GPIO14** | **+** buzzer passivo |
+| **GND** | − buzzer, GND matrice, GND alimentatore |
+
+GPIO3 è la linea RX della seriale: per questo nel YAML il log seriale è disattivato (`baud_rate: 0`). Scollega il filo dati da RX se devi caricare il firmware via USB.
+
 ## Contenuto del repository
 
 | Percorso | Descrizione |
