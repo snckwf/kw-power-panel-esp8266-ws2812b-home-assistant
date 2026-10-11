@@ -64,11 +64,6 @@ const char* UPDATE_PASS   = "cambiami";      // password pagina /update - CAMBIA
 #define MATRIX_PIN  12   // D6 su Wemos D1 mini
 #define BUZZER_PIN  14   // D5 su Wemos D1 mini
 
-// Orientamento del display: 0 = normale, 2 = ruotato di 180 gradi.
-// Fisso nel codice apposta: non viene salvato in /config.json, quindi
-// una vecchia configurazione non puo' piu' sovrascriverlo.
-#define DISPLAY_ROTATION 0
-
 #define MATRIX_W 32
 #define MATRIX_H 8
 
@@ -105,6 +100,7 @@ struct Config {
   uint16_t alarmRepeatS;  // secondi tra due allarmi consecutivi
   uint8_t  brightness;    // 5..100
   uint16_t fetchS;        // secondi tra due letture da HA
+  uint8_t  rotation;      // 0 = normale, 2 = ruotato 180 gradi
 };
 
 Config cfg;
@@ -127,6 +123,7 @@ void setDefaults() {
   cfg.alarmRepeatS = 15;
   cfg.brightness   = 35;
   cfg.fetchS       = 5;
+  cfg.rotation     = 0;          // 0 = normale, 2 = 180 gradi
 }
 
 // =========================
@@ -316,6 +313,7 @@ bool saveConfig() {
   f.print(F(",\"alarmRepeatS\":"));  f.print(cfg.alarmRepeatS);
   f.print(F(",\"brightness\":"));    f.print(cfg.brightness);
   f.print(F(",\"fetchS\":"));        f.print(cfg.fetchS);
+  f.print(F(",\"rotation\":"));      f.print(cfg.rotation);
   f.print(F("}"));
   f.close();
 
@@ -356,6 +354,7 @@ bool loadConfig() {
   cfg.alarmRepeatS = doc["alarmRepeatS"] | cfg.alarmRepeatS;
   cfg.brightness   = doc["brightness"]   | cfg.brightness;
   cfg.fetchS       = doc["fetchS"]       | cfg.fetchS;
+  cfg.rotation     = doc["rotation"]     | cfg.rotation;
 
   Serial.println(F("[FS] config caricata"));
   return true;
@@ -367,7 +366,9 @@ void applyConfig() {
   if (cfg.fetchS < 1)       cfg.fetchS = 1;
   if (cfg.alarmRepeatS < 3) cfg.alarmRepeatS = 3;
 
-  matrix.setRotation(DISPLAY_ROTATION);
+  if (cfg.rotation != 0 && cfg.rotation != 2) cfg.rotation = 0;
+
+  matrix.setRotation(cfg.rotation);
   matrix.setBrightness(cfg.brightness);
   matrix.fillScreen(0);
   matrix.show();
@@ -529,6 +530,8 @@ a{color:var(--ac)}
   <div class="f"><label>Soglia colore medio (W)</label><input type="number" name="thrMidW" min="0" step="50"></div>
   <div class="f"><label>Soglia colore alto (W)</label><input type="number" name="thrHighW" min="0" step="50"></div>
 </div>
+<div class="f" style="flex:0 1 200px"><label>Orientamento display</label>
+  <select name="rotation"><option value="0">Normale</option><option value="2">Ruotato 180&deg;</option></select></div>
 <div class="f"><label>Luminosita': <span id="brv"></span></label>
 <input type="range" name="brightness" min="5" max="100" step="1" oninput="brv.textContent=this.value"></div>
 </div>
@@ -598,6 +601,7 @@ void handleGetConfig() {
   o += ",\"alarmRepeatS\":";  o += String(cfg.alarmRepeatS);
   o += ",\"brightness\":";    o += String(cfg.brightness);
   o += ",\"fetchS\":";        o += String(cfg.fetchS);
+  o += ",\"rotation\":";      o += String(cfg.rotation);
   o += "}";
   server.send(200, "application/json", o);
 }
@@ -634,6 +638,7 @@ void handlePostConfig() {
   if (!doc["alarmRepeatS"].isNull()) cfg.alarmRepeatS = doc["alarmRepeatS"].as<uint16_t>();
   if (!doc["brightness"].isNull())   cfg.brightness   = doc["brightness"].as<uint8_t>();
   if (!doc["fetchS"].isNull())       cfg.fetchS       = doc["fetchS"].as<uint16_t>();
+  if (!doc["rotation"].isNull())     cfg.rotation     = doc["rotation"].as<uint8_t>();
 
   applyConfig();
   saveConfig();
@@ -727,7 +732,7 @@ void setup() {
   loadConfig();
 
   matrix.begin();
-  matrix.setRotation(DISPLAY_ROTATION);
+  matrix.setRotation(cfg.rotation);
   matrix.setBrightness(cfg.brightness);
   matrix.fillScreen(0);
   matrix.show();
