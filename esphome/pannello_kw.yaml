@@ -1,0 +1,280 @@
+esphome:
+  name: pannello-kw
+  friendly_name: Pannello kW
+
+esp8266:
+  board: d1_mini
+
+logger:
+  level: INFO
+  baud_rate: 0
+
+wifi:
+  ssid: "il tuo nome ssid"
+  password: "la tua password wifi"
+  min_auth_mode: WPA2
+
+api:
+  encryption:
+    key: "GENERA_LA_TUA_CHIAVE"   # https://esphome.io/components/api.html
+  reboot_timeout: 0s
+
+ota:
+  - platform: esphome
+
+globals:
+  - id: panel_brightness
+    type: float
+    restore_value: yes
+    initial_value: "0.50"
+
+number:
+  - platform: template
+    name: "Luminosita Pannello kW"
+    id: panel_brightness_number
+    optimistic: true
+    restore_value: true
+    min_value: 5
+    max_value: 100
+    step: 5
+    initial_value: 30
+    mode: slider
+    entity_category: config
+    set_action:
+      - lambda: |-
+          id(panel_brightness) = x / 100.0f;
+
+button:
+  - platform: template
+    name: "Test Buzzer Pannello kW"
+    id: test_buzzer_button
+    entity_category: diagnostic
+    on_press:
+      then:
+        - script.execute: buzzer_melody
+
+output:
+  - platform: esp8266_pwm
+    pin: GPIO14
+    id: buzzer_out
+    frequency: 3000 Hz
+
+light:
+  - platform: neopixelbus
+    id: matrix_light
+    internal: true
+    type: GRB
+    variant: WS2812
+    pin: GPIO3
+    num_leds: 256
+    method:
+      type: esp8266_dma
+    default_transition_length: 0s
+    restore_mode: ALWAYS_ON
+
+sensor:
+  - platform: homeassistant
+    id: power_w
+    entity_id: sensor.potenza_totale_shelly_em
+    internal: true
+
+binary_sensor:
+  - platform: template
+    id: power_overload
+    lambda: |-
+      if (isnan(id(power_w).state)) return {};
+      return id(power_w).state >= 3000.0f;
+    filters:
+      - delayed_on: 500ms
+      - delayed_off: 1s
+    on_press:
+      then:
+        - script.execute: alarm_loop
+    on_release:
+      then:
+        - script.stop: alarm_loop
+        - script.stop: buzzer_melody
+        - output.turn_off: buzzer_out
+
+script:
+  - id: buzzer_melody
+    mode: restart
+    then:
+      - output.esp8266_pwm.set_frequency:
+          id: buzzer_out
+          frequency: 3000 Hz
+      - output.set_level:
+          id: buzzer_out
+          level: 50%
+      - delay: 120ms
+      - output.turn_off: buzzer_out
+      - delay: 50ms
+
+      - output.esp8266_pwm.set_frequency:
+          id: buzzer_out
+          frequency: 3400 Hz
+      - output.set_level:
+          id: buzzer_out
+          level: 50%
+      - delay: 120ms
+      - output.turn_off: buzzer_out
+      - delay: 50ms
+
+      - output.esp8266_pwm.set_frequency:
+          id: buzzer_out
+          frequency: 3800 Hz
+      - output.set_level:
+          id: buzzer_out
+          level: 50%
+      - delay: 180ms
+      - output.turn_off: buzzer_out
+      - delay: 120ms
+
+      - output.esp8266_pwm.set_frequency:
+          id: buzzer_out
+          frequency: 3400 Hz
+      - output.set_level:
+          id: buzzer_out
+          level: 50%
+      - delay: 120ms
+      - output.turn_off: buzzer_out
+      - delay: 50ms
+
+      - output.esp8266_pwm.set_frequency:
+          id: buzzer_out
+          frequency: 3000 Hz
+      - output.set_level:
+          id: buzzer_out
+          level: 50%
+      - delay: 220ms
+      - output.turn_off: buzzer_out
+
+  - id: alarm_loop
+    mode: restart
+    then:
+      - while:
+          condition:
+            binary_sensor.is_on: power_overload
+          then:
+            - script.execute: buzzer_melody
+            - delay: 1100ms
+
+display:
+  - platform: addressable_light
+    id: matrix_display
+    addressable_light_id: matrix_light
+    width: 32
+    height: 8
+    update_interval: 250ms
+
+    pixel_mapper: |-
+      if (x % 2 == 0) {
+        return (x * 8) + y;
+      }
+      return (x * 8) + (7 - y);
+
+    lambda: |-
+      it.fill(Color(0, 0, 0));
+
+      auto scale8 = [&](uint8_t v) -> uint8_t {
+        float b = id(panel_brightness);
+        if (b < 0.05f) b = 0.05f;
+        if (b > 1.00f) b = 1.00f;
+        int vv = (int) roundf((float) v * b);
+        if (vv < 0) vv = 0;
+        if (vv > 255) vv = 255;
+        return (uint8_t) vv;
+      };
+
+      auto mkcolor = [&](uint8_t r, uint8_t g, uint8_t b) -> Color {
+        return Color(scale8(r), scale8(g), scale8(b));
+      };
+
+      static const uint8_t GLYPH_BLANK[6] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+      static const uint8_t GLYPH_0[6] = {0x0E, 0x11, 0x13, 0x19, 0x11, 0x0E};
+      static const uint8_t GLYPH_1[6] = {0x04, 0x0C, 0x04, 0x04, 0x04, 0x1F};
+      static const uint8_t GLYPH_2[6] = {0x0E, 0x11, 0x01, 0x06, 0x08, 0x1F};
+      static const uint8_t GLYPH_3[6] = {0x1E, 0x01, 0x06, 0x01, 0x11, 0x0E};
+      static const uint8_t GLYPH_4[6] = {0x02, 0x06, 0x0A, 0x12, 0x1F, 0x02};
+      static const uint8_t GLYPH_5[6] = {0x1F, 0x10, 0x1E, 0x01, 0x11, 0x0E};
+      static const uint8_t GLYPH_6[6] = {0x06, 0x08, 0x1E, 0x11, 0x11, 0x0E};
+      static const uint8_t GLYPH_7[6] = {0x1F, 0x01, 0x02, 0x04, 0x08, 0x08};
+      static const uint8_t GLYPH_8[6] = {0x0E, 0x11, 0x0E, 0x11, 0x11, 0x0E};
+      static const uint8_t GLYPH_9[6] = {0x0E, 0x11, 0x11, 0x0F, 0x01, 0x0E};
+
+      // w più piccola
+      static const uint8_t GLYPH_W[6] = {0x00, 0x00, 0x11, 0x15, 0x15, 0x0A};
+
+      static const uint8_t GLYPH_N[6] = {0x11, 0x19, 0x15, 0x13, 0x11, 0x11};
+      static const uint8_t GLYPH_O[6] = {0x0E, 0x11, 0x11, 0x11, 0x11, 0x0E};
+      static const uint8_t GLYPH_H[6] = {0x11, 0x11, 0x1F, 0x11, 0x11, 0x11};
+      static const uint8_t GLYPH_A[6] = {0x0E, 0x11, 0x11, 0x1F, 0x11, 0x11};
+
+      auto glyph_for = [&](char ch) -> const uint8_t* {
+        switch (ch) {
+          case '0': return GLYPH_0;
+          case '1': return GLYPH_1;
+          case '2': return GLYPH_2;
+          case '3': return GLYPH_3;
+          case '4': return GLYPH_4;
+          case '5': return GLYPH_5;
+          case '6': return GLYPH_6;
+          case '7': return GLYPH_7;
+          case '8': return GLYPH_8;
+          case '9': return GLYPH_9;
+          case 'w': return GLYPH_W;
+          case 'N': return GLYPH_N;
+          case 'O': return GLYPH_O;
+          case 'H': return GLYPH_H;
+          case 'A': return GLYPH_A;
+          case ' ': return GLYPH_BLANK;
+          default:  return GLYPH_BLANK;
+        }
+      };
+
+      auto draw_glyph = [&](int x0, int y0, const uint8_t *glyph, Color col) {
+        for (int yy = 0; yy < 6; yy++) {
+          for (int xx = 0; xx < 5; xx++) {
+            if (glyph[yy] & (1 << (4 - xx))) {
+              it.draw_pixel_at(x0 + xx, y0 + yy, col);
+            }
+          }
+        }
+      };
+
+      Color c;
+      char txt[6];
+
+      if (isnan(id(power_w).state)) {
+        txt[0] = 'N';
+        txt[1] = 'O';
+        txt[2] = 'H';
+        txt[3] = 'A';
+        txt[4] = ' ';
+        txt[5] = '\0';
+        c = mkcolor(255, 40, 0);
+      } else {
+        int watts = (int) roundf(id(power_w).state);
+        if (watts < 0) watts = 0;
+        if (watts > 9999) watts = 9999;
+
+        snprintf(txt, sizeof(txt), "%4dw", watts);
+
+        if (watts >= 3000) {
+          c = mkcolor(255, 0, 0);
+        } else if (watts >= 2000) {
+          c = mkcolor(255, 220, 0);
+        } else {
+          c = mkcolor(0, 180, 0);
+        }
+      }
+
+      const int char_w = 5;
+      const int spacing = 1;
+      const int x = 1;
+      const int y = 1;
+
+      for (int i = 0; i < 5; i++) {
+        draw_glyph(x + i * (char_w + spacing), y, glyph_for(txt[i]), c);
+      }
