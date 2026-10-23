@@ -5,7 +5,7 @@
 >
 > Altri progetti di elettronica, Arduino, ESP32, Home Assistant e stampa 3D su **[www.emgi.it](https://www.emgi.it)**
 
-![Pannello kW con ESP8266, matrice WS2812B 8×32 e Home Assistant](immagini/cover-2026-pannello-kw-con-esp8266-matrice-ws2812b-8x32-e-home-assistan.png)
+![Pannello kW con ESP8266, matrice WS2812B 8×32 e Home Assistant](immagini/copertina-3d.jpg)
 
 Questo progetto si integra in Home Assistant. Se non l’hai ancora installato, parti dalla guida [Come installare Home Assistant su Raspberry Pi 4, 5 e Zero](https://www.emgi.it/2026/04/14/installare-home-assistant-su-raspberry-pi/).
 
