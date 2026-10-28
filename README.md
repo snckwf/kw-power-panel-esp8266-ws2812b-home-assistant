@@ -1,93 +1,93 @@
-# Pannello kW con ESP8266, matrice WS2812B 8×32 e Home Assistant
+# kW power panel with ESP8266, WS2812B 8×32 matrix and Home Assistant
 
-> 📖 **Articolo completo con schema, foto e spiegazioni passo passo:**  
-> **[Pannello kW con ESP8266, matrice WS2812B 8×32 e Home Assistant – www.emgi.it](https://www.emgi.it/2026/04/04/pannello-kw-con-esp8266-matrice-ws2812b-8x32-e-home-assistant/)**
+> 📖 **Full article with wiring diagram, photos and step-by-step explanations (in Italian):**  
+> **[kW power panel with ESP8266, WS2812B 8×32 matrix and Home Assistant – www.emgi.it](https://www.emgi.it/2026/04/04/pannello-kw-con-esp8266-matrice-ws2812b-8x32-e-home-assistant/)**
 >
-> Altri progetti di elettronica, Arduino, ESP32, Home Assistant e stampa 3D su **[www.emgi.it](https://www.emgi.it)**
+> More electronics, Arduino, ESP32, Home Assistant and 3D printing projects at **[www.emgi.it](https://www.emgi.it)**
 
-![Pannello kW con ESP8266, matrice WS2812B 8×32 e Home Assistant](immagini/copertina-3d.jpg)
+![kW power panel with ESP8266, WS2812B 8×32 matrix and Home Assistant](images/cover-3d.jpg)
 
-Questo progetto si integra in Home Assistant. Se non l’hai ancora installato, parti dalla guida [Come installare Home Assistant su Raspberry Pi 4, 5 e Zero](https://www.emgi.it/2026/04/14/installare-home-assistant-su-raspberry-pi/).
+This project integrates with Home Assistant. If you have not installed it yet, start from the guide [How to install Home Assistant on Raspberry Pi 4, 5 and Zero](https://www.emgi.it/2026/04/14/installare-home-assistant-su-raspberry-pi/) (in Italian).
 
-Volevo un indicatore semplice, immediato e sempre visibile per controllare il consumo elettrico istantaneo. Da qui nasce questo progetto: un pannello LED basato su **Wemos D1 mini** e una **matrice WS2812B 8×32**, che mostra in tempo reale i watt letti da **Home Assistant**.
+I wanted a simple, immediate and always-visible indicator of my home's instantaneous power consumption. That is how this project was born: an LED panel based on a **Wemos D1 mini** and a **WS2812B 8×32 matrix** that shows, in real time, the watts read from **Home Assistant**.
 
-## Cosa fa il progetto
+## What it does
 
-Il pannello mostra il valore di un sensore di potenza già presente in Home Assistant direttamente su una matrice LED 8×32. Le funzioni principali della versione Arduino sono queste:
+The panel shows the value of a power sensor that already exists in Home Assistant directly on an 8×32 LED matrix. The main features of the Arduino version are:
 
-- lettura del sensore via **REST API** di Home Assistant, con intervallo configurabile
-- visualizzazione del valore **in watt interi**, centrato automaticamente sulla matrice
-- tre colori con soglie regolabili: colore basso, medio e alto
-- **allarme sonoro non bloccante** sopra una soglia impostabile, con ripetizione a intervalli
-- **interfaccia web** per modificare colori, soglie, luminosità, buzzer e parametri di Home Assistant senza ricompilare
-- configurazione **persistente su LittleFS**, applicata a caldo senza riavvio
-- doppio canale di aggiornamento **OTA**: porta di rete nell’IDE Arduino e pagina web di upload del file binario
-- mDNS, quindi il pannello risponde a un nome di rete e non solo all’indirizzo IP
-- ridisegno della matrice solo quando il valore cambia, per eliminare lo sfarfallio
+- reads the sensor through the Home Assistant **REST API**, with a configurable interval
+- shows the value **in whole watts**, automatically centred on the matrix
+- three colours with adjustable thresholds: low, medium and high
+- **non-blocking audible alarm** above a configurable threshold, repeated at intervals
+- **web interface** to change colours, thresholds, brightness, buzzer, display orientation and Home Assistant parameters without recompiling
+- configuration **stored on LittleFS** and applied on the fly without a restart
+- two **OTA** update channels: network port in the Arduino IDE and a web page to upload the binary file
+- mDNS, so the panel answers to a network name and not only to its IP address
+- the matrix is redrawn only when the value changes, to avoid flicker
 
-## Componenti utilizzati
+## Parts used
 
-- Wemos D1 mini v4 oppure altra scheda ESP8266 compatibile
-- matrice WS2812B 8×32 (256 LED)
-- buzzer piezo **passivo**
-- resistenza da 220–470 Ω in serie sul segnale dati, vicino al primo LED
-- condensatore da 1000 µF tra 5V e GND, vicino alla matrice
-- alimentatore 5V dedicato da almeno 2–3 A
-- cavi Dupont per le prove o cablaggio definitivo saldato
-- case stampato in 3D
+- Wemos D1 mini v4 or another compatible ESP8266 board
+- WS2812B 8×32 matrix (256 LEDs)
+- **passive** piezo buzzer
+- 220–470 Ω resistor in series on the data line, close to the first LED
+- 1000 µF capacitor between 5V and GND, close to the matrix
+- dedicated 5 V power supply, at least 2–3 A
+- Dupont wires for testing or soldered wiring for the final build
+- 3D-printed case
 
-## Collegamenti elettrici
+## Wiring
 
-Scheda: **Wemos D1 mini** (ESP8266). Pin verificati su sketch e YAML.
+Board: **Wemos D1 mini** (ESP8266). Pins checked against the sketch and the YAML.
 
-### Versione Arduino (`Pannello_Kw.ino`: `MATRIX_PIN 12`, `BUZZER_PIN 14`)
+### Arduino version (`kW_Power_Panel.ino`: `MATRIX_PIN 12`, `BUZZER_PIN 14`)
 
-| Wemos D1 mini | Collegato a |
+| Wemos D1 mini | Connected to |
 |---|---|
-| **D6 / GPIO12** | **DIN** matrice WS2812B 8×32, con resistenza **220–470 Ω** in serie vicino al primo LED |
-| **D5 / GPIO14** | **+** buzzer **passivo** |
-| **GND** | − buzzer, GND matrice e GND alimentatore (massa comune) |
-| **5V** | +5V alimentatore (oppure D1 mini alimentato da USB) |
+| **D6 / GPIO12** | **DIN** of the WS2812B 8×32 matrix, with a **220–470 Ω** series resistor near the first LED |
+| **D5 / GPIO14** | **passive** buzzer **+** |
+| **GND** | buzzer −, matrix GND and power supply GND (common ground) |
+| **5V** | power supply +5V (or D1 mini powered from USB) |
 
-| Alimentatore 5 V (2–3 A) | Matrice |
+| 5 V power supply (2–3 A) | Matrix |
 |---|---|
-| +5V | 5V matrice |
-| GND | GND matrice |
+| +5V | matrix 5V |
+| GND | matrix GND |
 
-Condensatore da **1000 µF** tra 5V e GND vicino alla matrice. Mappatura: `NEO_MATRIX_TOP + LEFT + COLUMNS + ZIGZAG`.
+**1000 µF** capacitor between 5V and GND near the matrix. Mapping: `NEO_MATRIX_TOP + LEFT + COLUMNS + ZIGZAG`.
 
-### Versione ESPHome (`esphome/pannello_kw.yaml`)
+### ESPHome version (`esphome/kw_panel.yaml`)
 
-| Wemos D1 mini | Collegato a |
+| Wemos D1 mini | Connected to |
 |---|---|
-| **RX / GPIO3** | **DIN** matrice (resistenza in serie) |
-| **D5 / GPIO14** | **+** buzzer passivo |
-| **GND** | − buzzer, GND matrice, GND alimentatore |
+| **RX / GPIO3** | matrix **DIN** (series resistor) |
+| **D5 / GPIO14** | passive buzzer **+** |
+| **GND** | buzzer −, matrix GND, power supply GND |
 
-GPIO3 è la linea RX della seriale: per questo nel YAML il log seriale è disattivato (`baud_rate: 0`). Scollega il filo dati da RX se devi caricare il firmware via USB.
+GPIO3 is the serial RX line: this is why serial logging is disabled in the YAML (`baud_rate: 0`). Disconnect the data wire from RX if you need to upload the firmware over USB.
 
-## Contenuto del repository
+## Repository contents
 
-| Percorso | Descrizione |
+| Path | Description |
 |---|---|
-| `Pannello_Kw/Pannello_Kw.ino` | Sketch Arduino |
-| `esphome/pannello_kw.yaml` | Configurazione YAML |
-| `immagini/` | Foto e immagini dell'articolo |
+| `kW_Power_Panel/kW_Power_Panel.ino` | Arduino sketch |
+| `esphome/kw_panel.yaml` | ESPHome configuration (alternative version) |
+| `images/` | Photos and images |
 
-## Come si usa
+## How to use it
 
-1. **Versione Arduino:** apri [`Pannello_Kw/Pannello_Kw.ino`](Pannello_Kw/Pannello_Kw.ino), scheda **LOLIN(WEMOS) D1 R2 & mini**, Flash Size **4MB (FS:1MB OTA:~1019KB)**.
-2. Inserisci SSID e password WiFi e **cambia le password OTA e /update** (`cambiami`).
-3. Dalla pagina web del pannello inserisci indirizzo di Home Assistant, entità e Long-Lived Access Token.
-4. **Versione ESPHome:** in alternativa usa [`esphome/pannello_kw.yaml`](esphome/pannello_kw.yaml).
+1. **Arduino version:** open [`kW_Power_Panel/kW_Power_Panel.ino`](kW_Power_Panel/kW_Power_Panel.ino), board **LOLIN(WEMOS) D1 R2 & mini**, Flash Size **4MB (FS:1MB OTA:~1019KB)**.
+2. Enter your Wi-Fi SSID and password and **change the OTA and /update passwords** (`changeme`).
+3. Open `http://kw-panel.local` and enter the Home Assistant address, the entity and a Long-Lived Access Token.
+4. **ESPHome version:** alternatively use [`esphome/kw_panel.yaml`](esphome/kw_panel.yaml) — set your Wi-Fi, generate your API key and put your power sensor in `entity_id`.
 
-Schema dei collegamenti, dettagli e risoluzione dei problemi: **[articolo su www.emgi.it](https://www.emgi.it/2026/04/04/pannello-kw-con-esp8266-matrice-ws2812b-8x32-e-home-assistant/)**.
+Wiring diagram, details and troubleshooting: **[article on www.emgi.it](https://www.emgi.it/2026/04/04/pannello-kw-con-esp8266-matrice-ws2812b-8x32-e-home-assistant/)** (in Italian).
 
-## Licenza
+## License
 
-- Codice e configurazioni: [MIT](LICENSE)
-- Modelli 3D, schemi e immagini: [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.it)
+- Code and configuration: [MIT](LICENSE)
+- 3D models, diagrams and images: [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
 
 ---
 
-**Autore:** Massimiliano Sandrin – **[eMGi.it](https://www.emgi.it)** · Domande e commenti sotto l'[articolo sul sito](https://www.emgi.it/2026/04/04/pannello-kw-con-esp8266-matrice-ws2812b-8x32-e-home-assistant/).
+**Author:** Massimiliano Sandrin – **[eMGi.it](https://www.emgi.it)** · Questions and comments below the [article on the website](https://www.emgi.it/2026/04/04/pannello-kw-con-esp8266-matrice-ws2812b-8x32-e-home-assistant/).

@@ -1,32 +1,32 @@
 /*
   ============================================================================
-  Pannello_Kw  v2.0
-  Wemos D1 mini v4 + matrice WS2812B 8x32 + Home Assistant
+  kW_Power_Panel  v2.0
+  Wemos D1 mini v4 + WS2812B 8x32 matrix + Home Assistant
   ----------------------------------------------------------------------------
-  - Mostra la potenza in W letta da Home Assistant (REST API)
-  - Allarme buzzer NON bloccante sopra soglia configurabile
-  - Interfaccia web di configurazione (colori, soglie, luminosita', HA, buzzer)
-  - Configurazione persistente su LittleFS (/config.json)
-  - OTA: ArduinoOTA (porta di rete nell'IDE) + pagina web /update
-  - Ridisegno della matrice solo quando il valore cambia (niente sfarfallio)
+  - Shows the power in W read from Home Assistant (REST API)
+  - NON-blocking buzzer alarm above a configurable threshold
+  - Web configuration interface (colours, thresholds, brightness, HA, buzzer)
+  - Persistent configuration on LittleFS (/config.json)
+  - OTA: ArduinoOTA (network port in the IDE) + /update web page
+  - The matrix is redrawn only when the value changes (no flicker)
 
-  Librerie da installare:
-  - ESP8266 by ESP8266 Community  (core, include LittleFS/WebServer/OTA/mDNS)
-  - ArduinoJson        (compatibile v6 e v7)
+  Libraries to install:
+  - ESP8266 by ESP8266 Community  (core, includes LittleFS/WebServer/OTA/mDNS)
+  - ArduinoJson        (v6 and v7 compatible)
   - Adafruit GFX Library
   - Adafruit NeoMatrix
   - Adafruit NeoPixel
 
-  IDE - Impostazioni consigliate:
-  - Scheda: LOLIN(WEMOS) D1 R2 & mini
-  - Flash Size: 4MB (FS:1MB OTA:~1019KB)   <-- necessario per LittleFS + OTA
+  IDE - Recommended settings:
+  - Board: LOLIN(WEMOS) D1 R2 & mini
+  - Flash Size: 4MB (FS:1MB OTA:~1019KB)   <-- required for LittleFS + OTA
   - Upload Speed: 921600
 
-  Primo avvio:
-  1) Compila e carica via USB
-  2) Il display mostra l'IP per alcuni secondi (scorrimento)
-  3) Apri http://<IP>/  oppure  http://pannello-kw.local/
-  4) Inserisci il Long-Lived Access Token di HA e salva
+  First start:
+  1) Compile and upload over USB
+  2) The display scrolls the IP address for a few seconds
+  3) Open http://<IP>/  or  http://kw-panel.local/
+  4) Enter the HA Long-Lived Access Token and save
   ============================================================================
 */
 
@@ -45,24 +45,24 @@
 #include <Adafruit_NeoPixel.h>
 
 // =========================
-// WIFI  (unici dati non modificabili da web)
+// WIFI  (the only data that cannot be changed from the web page)
 // =========================
-const char* WIFI_SSID = "IL_TUO_SSID";
-const char* WIFI_PASS = "LA_TUA_PASSWORD";
+const char* WIFI_SSID = "YOUR_SSID";
+const char* WIFI_PASS = "YOUR_PASSWORD";
 
 // =========================
-// RETE / OTA
+// NETWORK / OTA
 // =========================
-const char* HOSTNAME      = "pannello-kw";   // -> http://pannello-kw.local
-const char* OTA_PASSWORD  = "cambiami";      // password ArduinoOTA - CAMBIALA
-const char* UPDATE_USER   = "admin";         // login pagina /update
-const char* UPDATE_PASS   = "cambiami";      // password pagina /update - CAMBIALA
+const char* HOSTNAME      = "kw-panel";      // -> http://kw-panel.local
+const char* OTA_PASSWORD  = "changeme";      // ArduinoOTA password - CHANGE IT
+const char* UPDATE_USER   = "admin";         // /update page login
+const char* UPDATE_PASS   = "changeme";      // /update page password - CHANGE IT
 
 // =========================
 // HARDWARE
 // =========================
-#define MATRIX_PIN  12   // D6 su Wemos D1 mini
-#define BUZZER_PIN  14   // D5 su Wemos D1 mini
+#define MATRIX_PIN  12   // D6 on Wemos D1 mini
+#define BUZZER_PIN  14   // D5 on Wemos D1 mini
 
 #define MATRIX_W 32
 #define MATRIX_H 8
@@ -78,7 +78,7 @@ ESP8266WebServer        server(80);
 ESP8266HTTPUpdateServer httpUpdater;
 
 // =========================
-// CONFIGURAZIONE PERSISTENTE
+// PERSISTENT CONFIGURATION
 // =========================
 #define CFG_PATH "/config.json"
 
@@ -92,15 +92,15 @@ struct Config {
   uint32_t colMid;
   uint32_t colHigh;
 
-  float    thrMidW;       // sopra questa soglia -> colore medio
-  float    thrHighW;      // sopra questa soglia -> colore alto
-  float    alarmW;        // soglia allarme buzzer
+  float    thrMidW;       // above this threshold -> medium colour
+  float    thrHighW;      // above this threshold -> high colour
+  float    alarmW;        // buzzer alarm threshold
 
   bool     buzzerOn;
-  uint16_t alarmRepeatS;  // secondi tra due allarmi consecutivi
+  uint16_t alarmRepeatS;  // seconds between two consecutive alarms
   uint8_t  brightness;    // 5..100
-  uint16_t fetchS;        // secondi tra due letture da HA
-  uint8_t  rotation;      // 0 = normale, 2 = ruotato 180 gradi
+  uint16_t fetchS;        // seconds between two HA readings
+  uint8_t  rotation;      // 0 = normal, 2 = rotated 180 degrees
 };
 
 Config cfg;
@@ -111,9 +111,9 @@ void setDefaults() {
   strlcpy(cfg.haToken,  "",                                 sizeof(cfg.haToken));
   strlcpy(cfg.haEntity, "sensor.potenza_totale_shelly_em",  sizeof(cfg.haEntity));
 
-  cfg.colLow       = 0x007800;   // verde
-  cfg.colMid       = 0xA06E00;   // giallo/ambra
-  cfg.colHigh      = 0xAA0000;   // rosso
+  cfg.colLow       = 0x007800;   // green
+  cfg.colMid       = 0xA06E00;   // yellow/amber
+  cfg.colHigh      = 0xAA0000;   // red
 
   cfg.thrMidW      = 1500.0;
   cfg.thrHighW     = 3000.0;
@@ -123,11 +123,11 @@ void setDefaults() {
   cfg.alarmRepeatS = 15;
   cfg.brightness   = 35;
   cfg.fetchS       = 5;
-  cfg.rotation     = 0;          // 0 = normale, 2 = 180 gradi
+  cfg.rotation     = 0;          // 0 = normal, 2 = 180 degrees
 }
 
 // =========================
-// STATO
+// STATE
 // =========================
 float currentWatts  = 0.0;
 bool  hasValidValue = false;
@@ -137,13 +137,13 @@ unsigned long lastFetchMs     = 0;
 unsigned long lastWifiRetryMs = 0;
 unsigned long lastAlarmMs     = 0;
 
-// anti-sfarfallio: ridisegno solo su variazione
+// anti-flicker: redraw only on change
 String   lastTxt      = "\x01";
 uint16_t lastCol      = 0xFFFF;
 bool     forceRedraw  = true;
 
 // =========================
-// COLORI
+// COLOURS
 // =========================
 uint16_t rgb565(uint32_t c) {
   return matrix.Color((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF);
@@ -182,7 +182,7 @@ void drawCenteredText(const String& txt, uint16_t color, bool force = false) {
   if (x < 0) x = 0;
   if (y < 0) y = 0;
 
-  matrix.setCursor(x, y);   // angolo alto-sx del testo, non la baseline
+  matrix.setCursor(x, y);   // top-left corner of the text, not the baseline
   matrix.setTextColor(color);
   matrix.print(txt);
   matrix.show();
@@ -192,7 +192,7 @@ void drawCenteredText(const String& txt, uint16_t color, bool force = false) {
   forceRedraw = false;
 }
 
-// scorrimento testo (usato solo per mostrare l'IP all'avvio)
+// scrolling text (used only to show the IP at startup)
 void scrollText(const String& txt, uint16_t color, uint8_t speedMs = 60) {
   matrix.setTextWrap(false);
   matrix.setTextSize(1);
@@ -224,7 +224,7 @@ uint16_t powerColor(float watts) {
 
 String formatPower(float watts) {
   char buf[12];
-  snprintf(buf, sizeof(buf), "%.0f", watts);   // watt interi, es. 2450
+  snprintf(buf, sizeof(buf), "%.0f", watts);   // whole watts, e.g. 2450
   return String(buf);
 }
 
@@ -233,15 +233,15 @@ void showPower(float watts) {
 }
 
 // =========================
-// BUZZER NON BLOCCANTE
-// Melodia: La4 - Do5 - Mi5 - Do5
+// NON-BLOCKING BUZZER
+// Melody: A4 - C5 - E5 - C5
 // =========================
 const uint16_t MEL_NOTES[] = {440, 523, 659, 523};
 const uint16_t MEL_DUR[]   = {150, 150, 230, 220};
 const uint8_t  MEL_LEN     = 4;
 const uint16_t MEL_GAP     = 45;
 
-int8_t        melStep   = -1;     // -1 = fermo
+int8_t        melStep   = -1;     // -1 = stopped
 bool          melInNote = false;
 unsigned long melTs     = 0;
 
@@ -297,7 +297,7 @@ void handleAlarm(float watts) {
 // =========================
 bool saveConfig() {
   File f = LittleFS.open(CFG_PATH, "w");
-  if (!f) { Serial.println(F("[FS] open write fallito")); return false; }
+  if (!f) { Serial.println(F("[FS] open for write failed")); return false; }
 
   f.print(F("{\"haHost\":\""));      f.print(cfg.haHost);
   f.print(F("\",\"haPort\":"));      f.print(cfg.haPort);
@@ -317,13 +317,13 @@ bool saveConfig() {
   f.print(F("}"));
   f.close();
 
-  Serial.println(F("[FS] config salvata"));
+  Serial.println(F("[FS] config saved"));
   return true;
 }
 
 bool loadConfig() {
   if (!LittleFS.exists(CFG_PATH)) {
-    Serial.println(F("[FS] nessuna config, uso i default"));
+    Serial.println(F("[FS] no config, using defaults"));
     return false;
   }
   File f = LittleFS.open(CFG_PATH, "r");
@@ -356,7 +356,7 @@ bool loadConfig() {
   cfg.fetchS       = doc["fetchS"]       | cfg.fetchS;
   cfg.rotation     = doc["rotation"]     | cfg.rotation;
 
-  Serial.println(F("[FS] config caricata"));
+  Serial.println(F("[FS] config loaded"));
   return true;
 }
 
@@ -389,7 +389,7 @@ bool fetchPowerFromHA(float& wattsOut) {
                "/api/states/" + cfg.haEntity;
 
   if (!http.begin(client, url)) {
-    Serial.println(F("[HA] http.begin fallito"));
+    Serial.println(F("[HA] http.begin failed"));
     return false;
   }
 
@@ -404,7 +404,7 @@ bool fetchPowerFromHA(float& wattsOut) {
     return false;
   }
 
-  // filtro: prendo solo i due campi utili, risparmio RAM
+  // filter: keep only the two useful fields, saves RAM
 #if ARDUINOJSON_VERSION_MAJOR >= 7
   JsonDocument filter;
   JsonDocument doc;
@@ -447,7 +447,7 @@ void startWiFi() {
 
 void waitWiFi(unsigned long timeoutMs) {
   drawCenteredText("WiFi", colorBlue(), true);
-  Serial.print(F("Connessione WiFi"));
+  Serial.print(F("Connecting to WiFi"));
   unsigned long start = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - start < timeoutMs) {
     delay(250);
@@ -458,17 +458,17 @@ void waitWiFi(unsigned long timeoutMs) {
   if (WiFi.status() == WL_CONNECTED) {
     Serial.print(F("IP: ")); Serial.println(WiFi.localIP());
   } else {
-    Serial.println(F("WiFi NON connesso"));
+    Serial.println(F("WiFi NOT connected"));
   }
 }
 
 // =========================
-// PAGINA WEB
+// WEB PAGE
 // =========================
 const char PAGE_INDEX[] PROGMEM = R"HTMLPAGE(
-<!DOCTYPE html><html lang="it"><head>
+<!DOCTYPE html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Pannello kW</title>
+<title>kW Panel</title>
 <style>
 :root{--bg:#12151a;--card:#1b1f27;--bd:#2a3038;--tx:#e8eaed;--mu:#9aa3af;--ac:#4da3ff}
 *{box-sizing:border-box}
@@ -498,11 +498,11 @@ button.sec{background:#2a3038;color:var(--tx)}
 .ok{background:#12351f;color:#7ee2a8}.er{background:#3a1717;color:#ff9a9a}
 a{color:var(--ac)}
 </style></head><body><div class="wrap">
-<h1>Pannello kW</h1>
-<div class="sub">Configurazione display potenza - Home Assistant</div>
+<h1>kW Panel</h1>
+<div class="sub">Power display configuration - Home Assistant</div>
 <div id="msg"></div>
 
-<div class="card"><h2>Stato</h2>
+<div class="card"><h2>Status</h2>
 <div class="live">
   <div><div class="big" id="w">--</div><div class="tag">W</div></div>
   <div><div id="kw" class="tag">-- kW</div><div id="net" class="tag">--</div>
@@ -513,43 +513,43 @@ a{color:var(--ac)}
 <div class="card"><h2>Home Assistant</h2>
 <div class="row">
   <div class="f" style="flex:2 1 260px"><label>Host / IP</label><input type="text" name="haHost"></div>
-  <div class="f" style="flex:0 1 110px"><label>Porta</label><input type="number" name="haPort" min="1" max="65535"></div>
+  <div class="f" style="flex:0 1 110px"><label>Port</label><input type="number" name="haPort" min="1" max="65535"></div>
 </div>
 <div class="f"><label>Entity ID</label><input type="text" name="haEntity"></div>
-<div class="f"><label>Long-Lived Access Token (vuoto = non modificare)</label>
-<input type="password" name="haToken" placeholder="token non mostrato" autocomplete="new-password"></div>
+<div class="f"><label>Long-Lived Access Token (empty = keep current)</label>
+<input type="password" name="haToken" placeholder="token not shown" autocomplete="new-password"></div>
 </div>
 
-<div class="card"><h2>Colori e soglie</h2>
+<div class="card"><h2>Colours and thresholds</h2>
 <div class="row">
-  <div class="f"><label>Colore basso</label><input type="color" name="colLow"></div>
-  <div class="f"><label>Colore medio</label><input type="color" name="colMid"></div>
-  <div class="f"><label>Colore alto</label><input type="color" name="colHigh"></div>
+  <div class="f"><label>Low colour</label><input type="color" name="colLow"></div>
+  <div class="f"><label>Medium colour</label><input type="color" name="colMid"></div>
+  <div class="f"><label>High colour</label><input type="color" name="colHigh"></div>
 </div>
 <div class="row">
-  <div class="f"><label>Soglia colore medio (W)</label><input type="number" name="thrMidW" min="0" step="50"></div>
-  <div class="f"><label>Soglia colore alto (W)</label><input type="number" name="thrHighW" min="0" step="50"></div>
+  <div class="f"><label>Medium colour threshold (W)</label><input type="number" name="thrMidW" min="0" step="50"></div>
+  <div class="f"><label>High colour threshold (W)</label><input type="number" name="thrHighW" min="0" step="50"></div>
 </div>
-<div class="f" style="flex:0 1 200px"><label>Orientamento display</label>
-  <select name="rotation"><option value="0">Normale</option><option value="2">Ruotato 180&deg;</option></select></div>
-<div class="f"><label>Luminosita': <span id="brv"></span></label>
+<div class="f" style="flex:0 1 200px"><label>Display orientation</label>
+  <select name="rotation"><option value="0">Normal</option><option value="2">Rotated 180&deg;</option></select></div>
+<div class="f"><label>Brightness: <span id="brv"></span></label>
 <input type="range" name="brightness" min="5" max="100" step="1" oninput="brv.textContent=this.value"></div>
 </div>
 
-<div class="card"><h2>Allarme</h2>
+<div class="card"><h2>Alarm</h2>
 <div class="row">
-  <div class="f"><label>Soglia allarme (W)</label><input type="number" name="alarmW" min="0" step="50"></div>
-  <div class="f"><label>Ripetizione (s)</label><input type="number" name="alarmRepeatS" min="3" max="3600"></div>
-  <div class="f"><label>Lettura HA (s)</label><input type="number" name="fetchS" min="1" max="600"></div>
-  <div class="f chk"><input type="checkbox" name="buzzerOn" id="bz"><label for="bz" style="margin:0">Buzzer attivo</label></div>
+  <div class="f"><label>Alarm threshold (W)</label><input type="number" name="alarmW" min="0" step="50"></div>
+  <div class="f"><label>Repeat (s)</label><input type="number" name="alarmRepeatS" min="3" max="3600"></div>
+  <div class="f"><label>HA polling (s)</label><input type="number" name="fetchS" min="1" max="600"></div>
+  <div class="f chk"><input type="checkbox" name="buzzerOn" id="bz"><label for="bz" style="margin:0">Buzzer enabled</label></div>
 </div>
 </div>
 
 <div class="btns">
-  <button type="submit">Salva</button>
-  <button type="button" class="sec" onclick="post('/api/test','Test buzzer inviato')">Test buzzer</button>
-  <button type="button" class="sec" onclick="if(confirm('Riavviare?'))post('/api/restart','Riavvio in corso...')">Riavvia</button>
-  <a class="sec" href="/update" style="padding:10px 16px;border-radius:8px;background:#2a3038;text-decoration:none">Aggiornamento OTA</a>
+  <button type="submit">Save</button>
+  <button type="button" class="sec" onclick="post('/api/test','Buzzer test sent')">Buzzer test</button>
+  <button type="button" class="sec" onclick="if(confirm('Restart?'))post('/api/restart','Restarting...')">Restart</button>
+  <a class="sec" href="/update" style="padding:10px 16px;border-radius:8px;background:#2a3038;text-decoration:none">OTA update</a>
 </div>
 </form>
 </div>
@@ -564,7 +564,7 @@ function load(){fetch('/api/config').then(r=>r.json()).then(c=>{
   $('#brv').textContent=f.elements['brightness'].value;});}
 function status(){fetch('/api/status').then(r=>r.json()).then(s=>{
   $('#w').textContent=(s.valid?s.watts.toFixed(0):'--')+(s.over?'  !':'');
-  $('#kw').textContent=(s.valid?(s.watts/1000).toFixed(2):'--')+' kW'+(s.over?'  ALLARME':'');
+  $('#kw').textContent=(s.valid?(s.watts/1000).toFixed(2):'--')+' kW'+(s.over?'  ALARM':'');
   $('#net').textContent='IP '+s.ip+'  RSSI '+s.rssi+' dBm';
   $('#up').textContent='Uptime '+s.uptime+'s  Heap '+s.heap+' B';}).catch(()=>{});}
 f.addEventListener('submit',e=>{e.preventDefault();
@@ -572,7 +572,7 @@ f.addEventListener('submit',e=>{e.preventDefault();
     o[el.name]=el.type==='checkbox'?el.checked:el.value;}
   if(!o.haToken)delete o.haToken;
   fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)})
-  .then(r=>r.ok?msg('Configurazione salvata',1):msg('Errore nel salvataggio',0));});
+  .then(r=>r.ok?msg('Configuration saved',1):msg('Error while saving',0));});
 function post(u,t){fetch(u,{method:'POST'}).then(()=>msg(t,1));}
 load();status();setInterval(status,2000);
 </script></body></html>
@@ -644,7 +644,7 @@ void handlePostConfig() {
   saveConfig();
 
   if (hasValidValue) showPower(currentWatts);
-  lastFetchMs = 0;   // rilettura immediata
+  lastFetchMs = 0;   // immediate re-read
 
   server.send(200, "application/json", "{\"ok\":true}");
 }
@@ -685,7 +685,7 @@ void setupServer() {
 
   httpUpdater.setup(&server, "/update", UPDATE_USER, UPDATE_PASS);
   server.begin();
-  Serial.println(F("[WEB] server avviato su porta 80"));
+  Serial.println(F("[WEB] server started on port 80"));
 }
 
 void setupOTA() {
@@ -708,7 +708,7 @@ void setupOTA() {
   ArduinoOTA.onError([](ota_error_t e) { drawCenteredText("ERR", colorErr(), true); });
 
   ArduinoOTA.begin();
-  Serial.println(F("[OTA] pronto"));
+  Serial.println(F("[OTA] ready"));
 }
 
 // =========================
@@ -717,7 +717,7 @@ void setupOTA() {
 void setup() {
   Serial.begin(115200);
   delay(200);
-  Serial.println(F("\n\n=== Pannello_Kw v2.0 ==="));
+  Serial.println(F("\n\n=== kW_Power_Panel v2.0 ==="));
 
   pinMode(BUZZER_PIN, OUTPUT);
   noTone(BUZZER_PIN);
@@ -725,7 +725,7 @@ void setup() {
   setDefaults();
 
   if (!LittleFS.begin()) {
-    Serial.println(F("[FS] mount fallito, formatto..."));
+    Serial.println(F("[FS] mount failed, formatting..."));
     LittleFS.format();
     LittleFS.begin();
   }
@@ -782,14 +782,14 @@ void loop() {
   } else {
     if (now - lastWifiRetryMs >= 10000UL) {
       lastWifiRetryMs = now;
-      Serial.println(F("[WIFI] riconnessione..."));
+      Serial.println(F("[WIFI] reconnecting..."));
       WiFi.disconnect();
       WiFi.begin(WIFI_SSID, WIFI_PASS);
       if (!hasValidValue) drawCenteredText("NET!", colorErr());
     }
   }
 
-  // lettura periodica da Home Assistant
+  // periodic reading from Home Assistant
   if (now - lastFetchMs >= (unsigned long)cfg.fetchS * 1000UL) {
     lastFetchMs = now;
 
@@ -800,12 +800,12 @@ void loop() {
       showPower(currentWatts);
       handleAlarm(currentWatts);
     } else if (!hasValidValue) {
-      // mai letto nulla: mostro errore. Altrimenti lascio l'ultimo valore a schermo.
+      // nothing read yet: show an error. Otherwise keep the last value on screen.
       drawCenteredText("HA!", colorErr());
     }
   }
 
-  // ridisegno solo se qualcosa e' cambiato (colori/luminosita' da web)
+  // redraw only if something changed (colours/brightness from the web page)
   if (hasValidValue && forceRedraw) showPower(currentWatts);
 
   yield();
